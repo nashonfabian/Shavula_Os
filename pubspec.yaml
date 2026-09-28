@@ -43,6 +43,9 @@ dependencies:
   url_launcher: ^6.2.5
   cryptography: ^2.9.0
 
+dependency_overrides:
+  app_links: 6.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
