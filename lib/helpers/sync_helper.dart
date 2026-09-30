@@ -87,6 +87,28 @@ class SyncHelper {
     }
   }
 
+  /// Supabase -> SQLite: pakua catalog yote ya bidhaa kwa mafungu.
+  Future<void> pullProducts() async {
+    const pageSize = 500;
+    var offset = 0;
+
+    try {
+      while (true) {
+        final rows = await _supabase
+            .from('Products')
+            .select()
+            .order('id')
+            .range(offset, offset + pageSize - 1);
+        await _pullTable('Products', rows);
+
+        if (rows.length < pageSize) break;
+        offset += pageSize;
+      }
+    } catch (e) {
+      debugPrint('Pull error (Products): $e');
+    }
+  }
+
   // ---------------- Supabase -> SQLite ----------------
 
   Map<String, dynamic> _normalizeRemote(Map<String, dynamic> raw) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app_helper.dart'; // Ndio yenye DatabaseHelper, Products, na openSearchPage
+import 'helpers/sync_helper.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -28,10 +29,11 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadData();
+    _refreshProductsFromCloud();
   }
 
-  Future<void> _loadData() async {
-    setState(() => isLoading = true);
+  Future<void> _loadData({bool showLoading = true}) async {
+    if (showLoading) setState(() => isLoading = true);
     try {
       final data = await AppHelpers.fetchProductsByCategory(
         location: selectedLocation,
@@ -43,8 +45,13 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       debugPrint("Error loading: $e");
     } finally {
-      if (mounted) setState(() => isLoading = false);
+      if (showLoading && mounted) setState(() => isLoading = false);
     }
+  }
+
+  Future<void> _refreshProductsFromCloud() async {
+    await SyncHelper.instance.pullProducts();
+    if (mounted) await _loadData(showLoading: false);
   }
 
   @override
@@ -68,11 +75,13 @@ class _HomePageState extends State<HomePage> {
                         },
                         child: AbsorbPointer(
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 4),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(30),
-                              border: Border.all(color: Colors.amber.shade600, width: 1.5),
+                              border: Border.all(
+                                  color: Colors.amber.shade600, width: 1.5),
                             ),
                             child: Row(
                               children: [
@@ -91,7 +100,8 @@ class _HomePageState extends State<HomePage> {
                                     color: Colors.amber.shade600,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(Icons.search, color: Colors.white, size: 20),
+                                  child: const Icon(Icons.search,
+                                      color: Colors.white, size: 20),
                                 ),
                               ],
                             ),
@@ -103,7 +113,9 @@ class _HomePageState extends State<HomePage> {
                     Row(
                       children: [
                         const Icon(Icons.location_on_outlined, size: 18),
-                        Text(selectedLocation, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        Text(selectedLocation,
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ],
@@ -118,23 +130,29 @@ class _HomePageState extends State<HomePage> {
                   return GestureDetector(
                     onTap: () {
                       setState(() => selectedRoleIndex = index);
-                      
+
                       // Ikiwa amebonyeza "Mtoa Bidhaa" (index 1) au "Mteja" (index 2)
                       if (index == 1 || index == 2) {
                         AppHelpers.openLoginPage(context);
                       }
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       decoration: BoxDecoration(
-                        border: isSelected ? const Border(bottom: BorderSide(color: Colors.black, width: 2)) : null,
+                        border: isSelected
+                            ? const Border(
+                                bottom:
+                                    BorderSide(color: Colors.black, width: 2))
+                            : null,
                       ),
                       child: Text(
                         roles[index],
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
                     ),
@@ -147,15 +165,22 @@ class _HomePageState extends State<HomePage> {
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 12),
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: const Color(0xFFFBF4E8), borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFFBF4E8),
+                    borderRadius: BorderRadius.circular(8)),
                 child: Row(
                   children: [
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Eneo lako: Dar es salam, $selectedLocation', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                          const Text('Agiza bidhaa na Lipa kidogo kidogo kutoka kwa wauzaji wa eneo lako', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          Text('Eneo lako: Dar es salam, $selectedLocation',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 12)),
+                          const Text(
+                              'Agiza bidhaa na Lipa kidogo kidogo kutoka kwa wauzaji wa eneo lako',
+                              style:
+                                  TextStyle(fontSize: 11, color: Colors.grey)),
                         ],
                       ),
                     ),
@@ -170,9 +195,16 @@ class _HomePageState extends State<HomePage> {
                           },
                         );
                       },
-                      icon: const Icon(Icons.add_circle_outline, size: 14, color: Colors.amber),
-                      label: const Text('Badilisha eneo', style: TextStyle(fontSize: 11, color: Colors.amber)),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.white, elevation: 0, side: BorderSide(color: Colors.amber.shade300), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+                      icon: const Icon(Icons.add_circle_outline,
+                          size: 14, color: Colors.amber),
+                      label: const Text('Badilisha eneo',
+                          style: TextStyle(fontSize: 11, color: Colors.amber)),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          elevation: 0,
+                          side: BorderSide(color: Colors.amber.shade300),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6)),
                     ),
                   ],
                 ),
@@ -180,7 +212,11 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 15),
 
               // 4. Rahisisha Utafutaji
-              const Padding(padding: EdgeInsets.symmetric(horizontal: 12.0), child: Text('Rahisisha utafutaji', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+              const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12.0),
+                  child: Text('Rahisisha utafutaji',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold))),
               const SizedBox(height: 8),
               SizedBox(
                 height: 45,
@@ -200,9 +236,20 @@ class _HomePageState extends State<HomePage> {
                       },
                       child: Container(
                         margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(color: isSelected ? const Color(0xFFF7EEDD) : Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey.shade300)),
-                        child: Text(categories[index], style: TextStyle(fontSize: 13, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFFF7EEDD)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.grey.shade300)),
+                        child: Text(categories[index],
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal)),
                       ),
                     );
                   },
@@ -211,14 +258,25 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 15),
 
               // 5. Product Cards List
-              if (isLoading) const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator())),
-              if (!isLoading)
+              if (isLoading)
+                const Center(
+                    child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: CircularProgressIndicator())),
+              if (!isLoading && displayedProducts.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('Hakuna bidhaa zilizopatikana kwa sasa.'),
+                  ),
+                ),
+              if (!isLoading && displayedProducts.isNotEmpty)
                 ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: displayedProducts.isEmpty ? 2 : displayedProducts.length,
+                  itemCount: displayedProducts.length,
                   itemBuilder: (context, index) {
-                    final product = displayedProducts.isEmpty ? null : displayedProducts[index];
+                    final product = displayedProducts[index];
                     return ProductCardWidget(productData: product);
                   },
                 ),
@@ -231,23 +289,51 @@ class _HomePageState extends State<HomePage> {
 }
 
 class ProductCardWidget extends StatelessWidget {
-  final Map<String, dynamic>? productData;
-  const ProductCardWidget({super.key, this.productData});
+  final Map<String, dynamic> productData;
+  const ProductCardWidget({super.key, required this.productData});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5, spreadRadius: 1)]),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 5,
+                spreadRadius: 1)
+          ]),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           GestureDetector(
-            onTap: () => AppHelpers.openProductPage(context, productName: productData?['name'] ?? "Maguani ya vitambaa", currentLocation: "Kitunda, DSM"),
+            onTap: () => AppHelpers.openProductPage(context,
+                productName: '${productData['name'] ?? 'Bidhaa'}',
+                currentLocation: "Kitunda, DSM"),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Container(width: 130, height: 160, color: Colors.grey.shade300, child: const Icon(Icons.image, size: 50, color: Colors.grey)),
+              child: SizedBox(
+                width: 130,
+                height: 160,
+                child: '${productData['image_url'] ?? ''}'.isEmpty
+                    ? Container(
+                        color: Colors.grey.shade300,
+                        child: const Icon(Icons.image,
+                            size: 50, color: Colors.grey),
+                      )
+                    : Image.network(
+                        '${productData['image_url']}',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey.shade300,
+                          child: const Icon(Icons.broken_image,
+                              size: 50, color: Colors.grey),
+                        ),
+                      ),
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -255,16 +341,34 @@ class ProductCardWidget extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SellerPriceTile(sellerName: 'Fabian', cashPrice: '30,000', loanPrice: '45,000'),
-                const SizedBox(height: 10),
-                const SellerPriceTile(sellerName: 'Zeynalix', cashPrice: '30,000', loanPrice: '51,000'),
+                Text(
+                  '${productData['name'] ?? 'Bidhaa'}',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                Text('TSH ${productData['price'] ?? '-'}'),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () => AppHelpers.openOrderForm(context, productName: productData?['name'] ?? "Maguani ya vitambaa", location: "Kitunda, DSM", sellerName: "Fabian"),
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5B54E), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)), elevation: 0),
-                    child: const Text('Agiza bidhaa', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    onPressed: () => AppHelpers.openOrderForm(
+                      context,
+                      productName: '${productData['name'] ?? 'Bidhaa'}',
+                      location: "Kitunda, DSM",
+                      sellerName:
+                          '${productData['supplier_email'] ?? 'Mtoa bidhaa'}',
+                      cashPrice: '${productData['price'] ?? ''}',
+                      imageUrl: '${productData['image_url'] ?? ''}',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE5B54E),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6)),
+                        elevation: 0),
+                    child: const Text('Agiza bidhaa',
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -280,18 +384,45 @@ class SellerPriceTile extends StatelessWidget {
   final String sellerName;
   final String cashPrice;
   final String loanPrice;
-  const SellerPriceTile({super.key, required this.sellerName, required this.cashPrice, required this.loanPrice});
+  const SellerPriceTile(
+      {super.key,
+      required this.sellerName,
+      required this.cashPrice,
+      required this.loanPrice});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(children: [const Icon(Icons.person_outline, size: 14), const SizedBox(width: 4), Text(sellerName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))]),
+        Row(children: [
+          const Icon(Icons.person_outline, size: 14),
+          const SizedBox(width: 4),
+          Text(sellerName,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))
+        ]),
         const SizedBox(height: 4),
-        Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(4)), child: Text('💰 Cash TSH $cashPrice', style: const TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold))),
+        Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+                color: const Color(0xFFE8F5E9),
+                borderRadius: BorderRadius.circular(4)),
+            child: Text('💰 Cash TSH $cashPrice',
+                style: const TextStyle(
+                    color: Colors.green,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold))),
         const SizedBox(height: 3),
-        Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFFFFEBEE), borderRadius: BorderRadius.circular(4)), child: Text('💳 Lipa kidogo kidogo TSH $loanPrice', style: const TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold))),
+        Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+                color: const Color(0xFFFFEBEE),
+                borderRadius: BorderRadius.circular(4)),
+            child: Text('💳 Lipa kidogo kidogo TSH $loanPrice',
+                style: const TextStyle(
+                    color: Colors.redAccent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold))),
       ],
     );
   }
