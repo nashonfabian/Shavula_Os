@@ -9,10 +9,12 @@ void main() async {
 
   await Supabase.initialize(
     url: 'https://nmjmfsaelezhccsptkie.supabase.co',
-    publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tam1mc2FlbGV6aGNjc3B0a2llIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwMzQwMzEsImV4cCI6MjA5MDYxMDAzMX0.Qwwg4rE6ToSHddMXts79IDNln1_7KmOnuj8wyKJDpVI',
+    publishableKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tam1mc2FlbGV6aGNjc3B0a2llIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwMzQwMzEsImV4cCI6MjA5MDYxMDAzMX0.Qwwg4rE6ToSHddMXts79IDNln1_7KmOnuj8wyKJDpVI',
   );
 
   await DatabaseHelper.instance.database;
+  SyncHelper.instance.startAutoSync();
   await SyncHelper.instance.syncLocalToCloud();
 
   runApp(const MyApp());

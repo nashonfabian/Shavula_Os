@@ -1,14 +1,19 @@
+import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'db_helper.dart';
 import 'timezone_helper.dart';
 
-class SyncHelper {
+class SyncHelper with WidgetsBindingObserver {
   static final SyncHelper instance = SyncHelper._init();
   SyncHelper._init();
 
   final SupabaseClient _supabase = Supabase.instance.client;
+  StreamSubscription<ConnectivityResult>? _connectivitySubscription;
+  bool _syncInProgress = false;
+  bool _syncRequestedAgain = false;
 
   // Orodha ya meza za kusawazisha (SQLite -> Supabase)
   final List<String> _tables = [
@@ -16,8 +21,8 @@ class SyncHelper {
     'Seller_listing',
     'Products',
     'Orders',
-    'Payments',
     'Loans',
+    'Payments',
   ];
 
   /// Columns za ndani ya SQLite tu, ambazo hazitumwi Supabase:
@@ -29,6 +34,28 @@ class SyncHelper {
 
   // Columns za aina timestamptz kwenye Supabase
   static const _tzColumns = ['created_at', 'payment_date', 'updated_at'];
+
+  void startAutoSync() {
+    if (_connectivitySubscription != null) return;
+
+    WidgetsBinding.instance.addObserver(this);
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      (result) {
+        if (result != ConnectivityResult.none) {
+          unawaited(syncLocalToCloud());
+        }
+      },
+      onError: (Object error) =>
+          debugPrint('Connectivity listener error: $error'),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(syncLocalToCloud());
+    }
+  }
 
   Map<String, dynamic> _buildCloudPayload(
       String table, Map<String, dynamic> record) {
@@ -70,6 +97,23 @@ class SyncHelper {
 
   /// SQLite -> Supabase: rusha rekodi zenye is_synced = 0
   Future<void> syncLocalToCloud() async {
+    if (_syncInProgress) {
+      _syncRequestedAgain = true;
+      return;
+    }
+
+    _syncInProgress = true;
+    try {
+      do {
+        _syncRequestedAgain = false;
+        await _syncLocalToCloudPass();
+      } while (_syncRequestedAgain);
+    } finally {
+      _syncInProgress = false;
+    }
+  }
+
+  Future<void> _syncLocalToCloudPass() async {
     final db = await DatabaseHelper.instance.database;
 
     for (String table in _tables) {

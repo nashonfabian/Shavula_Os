@@ -182,6 +182,8 @@ class AuthHelper {
         email: cleanEmail,
         password: password,
       );
+    } on AuthRetryableFetchException {
+      return _loginOffline(cleanEmail, password);
     } on AuthException {
       rethrow;
     } catch (_) {
