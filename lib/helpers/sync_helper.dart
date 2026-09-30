@@ -14,6 +14,7 @@ class SyncHelper with WidgetsBindingObserver {
   StreamSubscription<ConnectivityResult>? _connectivitySubscription;
   bool _syncInProgress = false;
   bool _syncRequestedAgain = false;
+  String? _activeSupplierEmail;
 
   // Orodha ya meza za kusawazisha (SQLite -> Supabase)
   final List<String> _tables = [
@@ -42,7 +43,7 @@ class SyncHelper with WidgetsBindingObserver {
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
       (result) {
         if (result != ConnectivityResult.none) {
-          unawaited(syncLocalToCloud());
+          unawaited(syncForActiveSupplier());
         }
       },
       onError: (Object error) =>
@@ -53,8 +54,25 @@ class SyncHelper with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      unawaited(syncLocalToCloud());
+      unawaited(syncForActiveSupplier());
     }
+  }
+
+  void setActiveSupplier(String? email) {
+    _activeSupplierEmail = email?.trim().toLowerCase();
+  }
+
+  void clearActiveSupplier() {
+    _activeSupplierEmail = null;
+  }
+
+  Future<void> syncForActiveSupplier() async {
+    await syncLocalToCloud();
+    final email = _activeSupplierEmail;
+    if (email == null || email.isEmpty) return;
+
+    await pullSupplierData(email);
+    await pullProducts();
   }
 
   Map<String, dynamic> _buildCloudPayload(
@@ -206,6 +224,13 @@ class SyncHelper with WidgetsBindingObserver {
       }
     }
 
+    await safe('users', () async {
+      final rows = await _supabase
+          .from('users')
+          .select()
+          .eq('supplier_id', email);
+      await _pullSupplierProfile(rows);
+    });
     await safe('Loans', () async {
       final rows =
           await _supabase.from('Loans').select().eq('supplier_id', email);
@@ -216,6 +241,13 @@ class SyncHelper with WidgetsBindingObserver {
           await _supabase.from('Payments').select().eq('supplier_id', email);
       await _pullTable('Payments', rows);
     });
+    await safe('Seller_listing', () async {
+      final rows = await _supabase
+          .from('Seller_listing')
+          .select()
+          .eq('supplier_email', email);
+      await _pullTable('Seller_listing', rows);
+    });
     await safe('Orders', () async {
       final rows = await _supabase
           .from('Orders')
@@ -223,5 +255,32 @@ class SyncHelper with WidgetsBindingObserver {
           .or('supplier.eq."$email",matched_supplier.eq."$email"');
       await _pullTable('Orders', rows);
     });
+  }
+
+  Future<void> _pullSupplierProfile(List<dynamic> rows) async {
+    final db = await DatabaseHelper.instance.database;
+    final columns = (await db.rawQuery('PRAGMA table_info(users)'))
+        .map((row) => row['name'] as String)
+        .toSet();
+
+    for (final remote in rows) {
+      final row = _normalizeRemote(Map<String, dynamic>.from(remote as Map));
+      row.removeWhere((key, _) => !columns.contains(key));
+
+      final local = await db.query(
+        'users',
+        where: 'id = ?',
+        whereArgs: [row['id']],
+        limit: 1,
+      );
+      if (local.isNotEmpty && local.first['is_synced'] == 0) continue;
+
+      // Keep the local offline credential; it must never be replaced by cloud data.
+      if (local.isNotEmpty) {
+        row['password_hash'] = local.first['password_hash'];
+      }
+      row['is_synced'] = 1;
+      await DatabaseHelper.instance.insertOrUpdate('users', row);
+    }
   }
 }

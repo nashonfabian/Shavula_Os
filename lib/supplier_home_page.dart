@@ -42,8 +42,8 @@ class _SupplierHomePageState extends State<SupplierHomePage> {
 
   /// Tuma mabadiliko ya ndani, kisha pakua data mpya ya supplier (kimya kimya).
   Future<void> _bootstrapSync() async {
-    await SyncHelper.instance.syncLocalToCloud();
-    await SyncHelper.instance.pullSupplierData(_email);
+    SyncHelper.instance.setActiveSupplier(_email);
+    await SyncHelper.instance.syncForActiveSupplier();
     if (mounted) _refreshStats();
   }
 
@@ -58,6 +58,7 @@ class _SupplierHomePageState extends State<SupplierHomePage> {
 
   /// Funga: toka kwenye akaunti na rudi kwenye ukurasa wa login
   Future<void> _funga() async {
+    SyncHelper.instance.clearActiveSupplier();
     await AuthHelper().logout();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
