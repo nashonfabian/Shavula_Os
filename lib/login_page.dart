@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'helpers/auth_helper.dart';
 import 'supplier_home_page.dart';
+
+const _registeredEmailKey = 'shavula_registered_email';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,6 +16,19 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final AuthHelper _authHelper = AuthHelper();
   String? _emailToPrefill;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreRegisteredEmail();
+  }
+
+  Future<void> _restoreRegisteredEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    final email = prefs.getString(_registeredEmailKey);
+    if (!mounted || email == null || _emailToPrefill != null) return;
+    setState(() => _emailToPrefill = email);
+  }
 
   void _goToHome(AuthResult result) {
     if (!mounted) return;
@@ -143,9 +159,9 @@ class _LoginPageState extends State<LoginPage> {
                 setDialogState(() => errorText = 'Jaza sehemu zote.');
                 return;
               }
-                if (!RegExp(r'^\d{6}$').hasMatch(passwordCtrl.text)) {
+              if (!RegExp(r'^\d{6}$').hasMatch(passwordCtrl.text)) {
                 setDialogState(
-                  () => errorText = 'Namba ya siri iwe na tarakimu 6.');
+                    () => errorText = 'Namba ya siri iwe na tarakimu 6.');
                 return;
               }
               if (passwordCtrl.text != confirmCtrl.text) {
@@ -165,6 +181,13 @@ class _LoginPageState extends State<LoginPage> {
                 );
                 if (!mounted || !dialogContext.mounted) return;
                 _emailToPrefill = submittedEmail;
+                try {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString(_registeredEmailKey, submittedEmail);
+                } catch (_) {
+                  // Signup succeeds even if local email prefill cannot be saved.
+                }
+                if (!mounted || !dialogContext.mounted) return;
                 Navigator.of(dialogContext).pop();
                 ScaffoldMessenger.of(this.context).showSnackBar(
                   SnackBar(
