@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'helpers/auth_helper.dart';
 import 'supplier_home_page.dart';
 
@@ -11,6 +12,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final AuthHelper _authHelper = AuthHelper();
+  String? _emailToPrefill;
 
   void _goToHome(AuthResult result) {
     if (!mounted) return;
@@ -28,7 +30,7 @@ class _LoginPageState extends State<LoginPage> {
 
   // ---------------- POPUP: INGIA (LOGIN) ----------------
   void _showLoginDialog() {
-    final emailCtrl = TextEditingController();
+    final emailCtrl = TextEditingController(text: _emailToPrefill ?? '');
     final passwordCtrl = TextEditingController();
     bool isLoading = false;
     String? errorText;
@@ -40,9 +42,11 @@ class _LoginPageState extends State<LoginPage> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             Future<void> handleLogin() async {
-              if (emailCtrl.text.trim().isEmpty || passwordCtrl.text.isEmpty) {
-                setDialogState(
-                    () => errorText = 'Jaza barua pepe na namba ya siri.');
+              if (emailCtrl.text.trim().isEmpty ||
+                  passwordCtrl.text.length < 6) {
+                setDialogState(() => errorText = emailCtrl.text.trim().isEmpty
+                    ? 'Jaza barua pepe.'
+                    : 'Namba ya siri iwe na angalau herufi 6.');
                 return;
               }
               setDialogState(() {
@@ -139,9 +143,9 @@ class _LoginPageState extends State<LoginPage> {
                 setDialogState(() => errorText = 'Jaza sehemu zote.');
                 return;
               }
-              if (passwordCtrl.text.length < 6) {
+                if (!RegExp(r'^\d{6}$').hasMatch(passwordCtrl.text)) {
                 setDialogState(
-                    () => errorText = 'Namba ya siri iwe angalau herufi 6.');
+                  () => errorText = 'Namba ya siri iwe na tarakimu 6.');
                 return;
               }
               if (passwordCtrl.text != confirmCtrl.text) {
@@ -153,25 +157,23 @@ class _LoginPageState extends State<LoginPage> {
                 errorText = null;
               });
               try {
+                final submittedEmail = emailCtrl.text.trim().toLowerCase();
                 final result = await _authHelper.registerUser(
-                  emailCtrl.text,
+                  submittedEmail,
                   passwordCtrl.text,
                   nameCtrl.text.trim(),
                 );
-                if (!dialogContext.mounted) return;
+                if (!mounted || !dialogContext.mounted) return;
+                _emailToPrefill = submittedEmail;
                 Navigator.of(dialogContext).pop();
-                if (result == null) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(this.context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                            'Kagua barua pepe yako kwa kiungo cha uthibitisho, kisha ingia.'),
-                      ),
-                    );
-                  }
-                  return;
-                }
-                _goToHome(result);
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(
+                    content: Text(result == null
+                        ? 'Usajili umefanikiwa. Thibitisha email yako, kisha ingia.'
+                        : 'Usajili umefanikiwa. Ingia kwa email yako.'),
+                  ),
+                );
+                _showLoginDialog();
               } catch (e) {
                 setDialogState(() {
                   isLoading = false;
@@ -203,6 +205,11 @@ class _LoginPageState extends State<LoginPage> {
                     TextField(
                       controller: passwordCtrl,
                       obscureText: true,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(6),
+                      ],
                       decoration:
                           const InputDecoration(labelText: 'Namba ya siri'),
                     ),
@@ -210,6 +217,11 @@ class _LoginPageState extends State<LoginPage> {
                     TextField(
                       controller: confirmCtrl,
                       obscureText: true,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(6),
+                      ],
                       decoration: const InputDecoration(
                           labelText: 'Thibitisha namba ya siri'),
                     ),

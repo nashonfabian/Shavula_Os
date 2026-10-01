@@ -112,9 +112,14 @@ class _CustomersPageState extends State<CustomersPage> {
     }
   }
 
-  String _reminder(Map<String, dynamic> l) =>
-      'Habari ${l['customer_name']}, kiasi kilichobaki kwenye mkopo wa ${l['product_name']} '
-      'ni TSH ${fmtMoney(l['remaining_balance'])}. Asante.';
+  String _reminder(Map<String, dynamic> l) {
+    final customerId = '${l['customer_id'] ?? ''}'.trim();
+    final message =
+        'Habari ${l['customer_name']}, kiasi kilichobaki kwenye mkopo wa ${l['product_name']} '
+        'ni TSH ${fmtMoney(l['remaining_balance'])}. Asante.';
+    if (customerId.isEmpty) return message;
+    return '$message\n\nAngalia taarifa za deni hapa: ${customerPortalUrl(customerId)}';
+  }
 
   void _call(Map<String, dynamic> l) =>
       _open(Uri(scheme: 'tel', path: '${l['customer_phone']}'));

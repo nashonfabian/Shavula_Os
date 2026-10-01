@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:sqflite/sqflite.dart';
 import 'db_helper.dart';
 import 'sync_helper.dart';
@@ -51,6 +52,12 @@ String intlPhone(String phone) {
   return d;
 }
 
+String customerPortalUrl(String customerId) => Uri.https(
+      'shavula-os-72768.bubbleapps.io',
+      '/version-test/customer',
+      {'id': customerId},
+    ).toString();
+
 class SupplierHelper {
   static final SupplierHelper instance = SupplierHelper._();
   SupplierHelper._();
@@ -64,6 +71,25 @@ class SupplierHelper {
   Future<Database> get _db => DatabaseHelper.instance.database;
 
   void _syncSoon() => unawaited(SyncHelper.instance.syncLocalToCloud());
+
+  Future<String> newCustomerId() async {
+    final db = await _db;
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    final random = math.Random.secure();
+
+    while (true) {
+      final id =
+          'C${List.generate(15, (_) => alphabet[random.nextInt(alphabet.length)]).join()}';
+      final existing = await db.query(
+        'Loans',
+        columns: ['id'],
+        where: 'customer_id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (existing.isEmpty) return id;
+    }
+  }
 
   // ---------------- Dashibodi ----------------
 

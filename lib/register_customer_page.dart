@@ -73,15 +73,6 @@ class _RegisterCustomerPageState extends State<RegisterCustomerPage> {
   double _num(TextEditingController c) =>
       double.tryParse(c.text.trim().replaceAll(',', '')) ?? 0;
 
-  bool get _valid =>
-      _name.text.trim().isNotEmpty &&
-      _phone.text.trim().isNotEmpty &&
-      _product.text.trim().isNotEmpty &&
-      _num(_total) > 0 &&
-      _num(_daily) > 0 &&
-      _num(_deposit) >= 0 &&
-      _num(_deposit) <= _num(_total);
-
   void _pickExisting(String? cid) {
     setState(() => _selectedCustomerId = cid);
     if (cid == null) return;
@@ -103,14 +94,15 @@ class _RegisterCustomerPageState extends State<RegisterCustomerPage> {
   }
 
   Future<void> _save() async {
-    if (!_valid || _saving) return;
+    if (_saving) return;
     setState(() => _saving = true);
 
     final phone = _phone.text.trim();
+    final customerId =
+        _selectedCustomerId ?? await SupplierHelper.instance.newCustomerId();
     await SupplierHelper.instance.createLoan(
       supplierEmail: widget.supplierEmail,
-      // Mteja mpya anatambulishwa kwa namba yake ya simu
-      customerId: _selectedCustomerId ?? intlPhone(phone),
+      customerId: customerId,
       name: _name.text.trim(),
       phone: phone,
       area: _area.text.trim(),
@@ -234,7 +226,7 @@ class _RegisterCustomerPageState extends State<RegisterCustomerPage> {
             const SizedBox(height: 22),
             Center(
               child: ElevatedButton(
-                onPressed: _valid && !_saving ? _save : null,
+                onPressed: _saving ? null : _save,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: gold,
                   foregroundColor: Colors.black,
