@@ -180,6 +180,8 @@ class SyncHelper with WidgetsBindingObserver {
         out[k] = v ? 1 : 0;
       } else if (v is List || v is Map) {
         out[k] = jsonEncode(v);
+      } else if ((k == 'start_date' || k == 'due_date') && v is String) {
+        out[k] = tanzaniaDateOnly(v);
       } else if (_tzColumns.contains(k) && v is String) {
         final d = DateTime.tryParse(v);
         out[k] = d != null ? tanzaniaTimestamp(d) : v;
@@ -225,10 +227,8 @@ class SyncHelper with WidgetsBindingObserver {
     }
 
     await safe('users', () async {
-      final rows = await _supabase
-          .from('users')
-          .select()
-          .eq('supplier_id', email);
+      final rows =
+          await _supabase.from('users').select().eq('supplier_id', email);
       await _pullSupplierProfile(rows);
     });
     await safe('Loans', () async {

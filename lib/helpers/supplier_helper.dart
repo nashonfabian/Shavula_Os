@@ -52,6 +52,9 @@ String intlPhone(String phone) {
   return d;
 }
 
+double _asDouble(dynamic value, {double fallback = 0}) =>
+    value is num ? value.toDouble() : double.tryParse('$value') ?? fallback;
+
 String customerPortalUrl(String customerId) => Uri.https(
       'shavula-os-72768.bubbleapps.io',
       '/version-test/customer',
@@ -222,35 +225,57 @@ class SupplierHelper {
   /// Rekodi malipo, punguza deni, na sogeza due_date kulingana na siku
   /// zilizolipiwa: due = start + (siku zilizolipiwa + 1).
   Future<void> recordPayment(Map<String, dynamic> loan, double amount) async {
+    if (amount <= 0) throw Exception('Weka kiasi cha malipo kilicho sahihi.');
     final db = await _db;
-    final total = (loan['total_amount'] as num?)?.toDouble() ?? 0;
-    final initial = (loan['initial_amount'] as num?)?.toDouble() ?? 0;
-    final daily = (loan['daily_payment'] as num?)?.toDouble() ?? 0;
-    final paid = ((loan['amount_paid'] as num?)?.toDouble() ?? 0) + amount;
-    final remaining = (total - paid) < 0 ? 0.0 : (total - paid);
-
-    var due = loan['due_date'] as String?;
-    if (daily > 0) {
-      final s = DateTime.tryParse('${loan['start_date']}') ?? tanzaniaNow();
-      final covered = ((paid - initial) / daily).floor();
-      final d =
-          DateTime(s.year, s.month, s.day).add(Duration(days: covered + 1));
-      due = '${dateOnly(d)}T00:00:00';
-    }
-
     final now = tanzaniaTimestamp();
     await db.transaction((txn) async {
+      final rows = await txn.query(
+        'Loans',
+        where: 'id = ?',
+        whereArgs: [loan['id']],
+        limit: 1,
+      );
+      if (rows.isEmpty) throw Exception('Mkopo haujapatikana kwenye kifaa.');
+
+      final current = rows.first;
+      final total = _asDouble(current['total_amount']);
+      final amountPaidBefore = _asDouble(current['amount_paid']);
+      var remainingBefore = _asDouble(
+        current['remaining_balance'],
+        fallback: total - amountPaidBefore,
+      );
+      if (total > 0) {
+        remainingBefore = remainingBefore.clamp(0, total).toDouble();
+      }
+      if (amount > remainingBefore) {
+        throw Exception('Malipo yamezidi salio lililobaki.');
+      }
+
+      final remaining = remainingBefore - amount;
+      final paid = total > 0 ? total - remaining : amountPaidBefore + amount;
+      final initial = _asDouble(current['initial_amount']);
+      final daily = _asDouble(current['daily_payment']);
+      var due = current['due_date'] as String?;
+      if (daily > 0) {
+        final startDate = tanzaniaDateOnly(current['start_date']);
+        final start = DateTime.tryParse(startDate) ?? tanzaniaNow();
+        final covered = ((paid - initial) / daily).floor().clamp(0, 100000);
+        final nextDue = DateTime(start.year, start.month, start.day)
+            .add(Duration(days: covered + 1));
+        due = '${dateOnly(nextDue)}T00:00:00';
+      }
+
       await txn.insert('Payments', {
         'id': DateTime.now().microsecondsSinceEpoch,
         'created_at': now,
         'updated_at': now,
         'amount_payment': amount,
-        'supplier_id': loan['supplier_id'],
+        'supplier_id': current['supplier_id'],
         'payment_date': now,
-        'loan_id': loan['id'],
-        'payment_customer_name': loan['customer_name'],
+        'loan_id': current['id'],
+        'payment_customer_name': current['customer_name'],
         'loan_payment': amount,
-        'customer_id': loan['customer_id'],
+        'customer_id': current['customer_id'],
         'is_synced': 0,
       });
       await txn.update(
@@ -264,7 +289,7 @@ class SupplierHelper {
           'updated_at': now,
         },
         where: 'id = ?',
-        whereArgs: [loan['id']],
+        whereArgs: [current['id']],
       );
     });
     _syncSoon();
